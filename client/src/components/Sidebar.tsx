@@ -58,7 +58,7 @@ const Sidebar = ({ isMenuOpen, project, setProject, isGenerating, setIsGeneratin
             interval = setInterval(() => {
                 fetchProject();
             }, 10000)
-            const { data } = await api.post(`/api/project/revision/${project.id}`,
+            await api.post(`/api/project/revision/${project.id}`,
                 { message: currentInput })
             fetchProject();
             toast.success("Project updated")

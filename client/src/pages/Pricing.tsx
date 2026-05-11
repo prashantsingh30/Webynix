@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import { useState } from 'react'
 import { appPlans } from '../assets/assets';
 import Footer from '../components/Footer';
 import { authClient } from '@/lib/auth-client';
