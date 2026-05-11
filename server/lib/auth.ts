@@ -3,7 +3,11 @@ import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import prisma from "./prisma.js";
 
-const trustedOrigins = process.env.TRUSTED_ORIGINS?.split(",") || [];
+const trustedOrigins = [
+    "http://localhost:5173",
+    "https://webynix.vercel.app",
+    ...(process.env.TRUSTED_ORIGINS?.split(",") || [])
+];
 
 export const auth = betterAuth({
     database: prismaAdapter(prisma, {
@@ -18,7 +22,7 @@ export const auth = betterAuth({
     },
 
     trustedOrigins,
-    baseURL: process.env.BETTER_AUTH_URL!,
+    baseURL: process.env.BETTER_AUTH_URL || 'https://webynix-server.onrender.com',
     secret: process.env.BETTER_AUTH_SECRET!,
     advanced: {
         cookies: {

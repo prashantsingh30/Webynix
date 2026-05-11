@@ -1,6 +1,6 @@
 import { createAuthClient } from "better-auth/react"
 export const authClient = createAuthClient({
-    baseURL: import.meta.env.VITE_URL,
+    baseURL: import.meta.env.VITE_URL || (import.meta.env.PROD ? 'https://webynix-server.onrender.com' : 'http://localhost:3000'),
     fetchOptions: { credentials: "include" }
 })
 

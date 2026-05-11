@@ -13,8 +13,14 @@ const app = express();
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
+const allowedOrigins = [
+    "http://localhost:5173",
+    "https://webynix.vercel.app",
+    ...(process.env.TRUSTED_ORIGINS?.split(",") || [])
+];
+
 const corsOptions = {
-    origin: process.env.TRUSTED_ORIGINS?.split(",") || [],
+    origin: allowedOrigins,
     credentials: true,
 }
 
