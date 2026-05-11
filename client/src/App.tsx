@@ -11,7 +11,7 @@ import { useLocation } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import AuthPage from './pages/auth/AuthPage'
 import Setting from './pages/Setting'
-import Loading from './pages/loading'
+import Loading from './pages/Loading'
 
 const App = () => {
 
