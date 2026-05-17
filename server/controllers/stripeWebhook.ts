@@ -14,8 +14,10 @@ export const stripeWebhook = async (
 
     let event: Stripe.Event;
 
+    // Get Stripe signature
     const signature = request.headers["stripe-signature"] as string;
 
+    // Verify webhook signature
     try {
         event = stripe.webhooks.constructEvent(
             request.body,
@@ -23,9 +25,9 @@ export const stripeWebhook = async (
             endpointSecret
         );
 
-        console.log("✅ Webhook verified");
+        console.log("✅ Stripe webhook verified");
     } catch (err: any) {
-        console.log("⚠️ Webhook signature verification failed.");
+        console.log("❌ Webhook signature verification failed");
         console.log(err.message);
 
         return response.status(400).send(`Webhook Error: ${err.message}`);
@@ -33,19 +35,14 @@ export const stripeWebhook = async (
 
     try {
         switch (event.type) {
-            case "payment_intent.succeeded":
-                const paymentIntent = event.data.object as Stripe.PaymentIntent;
+            case "checkout.session.completed": {
+                const session = event.data.object as Stripe.Checkout.Session;
 
-                console.log("✅ Payment succeeded");
+                console.log("✅ Checkout session completed");
 
-                const sessionList = await stripe.checkout.sessions.list({
-                    payment_intent: paymentIntent.id,
-                });
-
-                const session = sessionList.data[0];
-
-                if (!session || !session.metadata) {
-                    console.log("❌ No session metadata found");
+                // Ensure metadata exists
+                if (!session.metadata) {
+                    console.log("❌ No metadata found");
 
                     return response.status(200).json({
                         ignored: true,
@@ -60,33 +57,43 @@ export const stripeWebhook = async (
                 console.log("Transaction ID:", transactionId);
                 console.log("App ID:", appId);
 
-                // FIXED HERE
-                if (appId === "webynix" && transactionId) {
-                    const existingTransaction =
-                        await prisma.transaction.findUnique({
-                            where: {
-                                id: transactionId,
-                            },
-                        });
+                // Ensure correct app
+                if (appId !== "webynix") {
+                    console.log("❌ Invalid appId");
 
-                    if (!existingTransaction) {
-                        console.log("❌ Transaction not found");
+                    return response.status(200).json({
+                        ignored: true,
+                    });
+                }
 
-                        return response.status(200).json({
-                            ignored: true,
-                        });
-                    }
+                // Find transaction
+                const existingTransaction =
+                    await prisma.transaction.findUnique({
+                        where: {
+                            id: transactionId,
+                        },
+                    });
 
-                    // Prevent duplicate webhook processing
-                    if (existingTransaction.isPaid) {
-                        console.log("⚠️ Transaction already processed");
+                if (!existingTransaction) {
+                    console.log("❌ Transaction not found");
 
-                        return response.status(200).json({
-                            alreadyProcessed: true,
-                        });
-                    }
+                    return response.status(200).json({
+                        ignored: true,
+                    });
+                }
 
-                    const transaction = await prisma.transaction.update({
+                // Prevent duplicate webhook processing
+                if (existingTransaction.isPaid) {
+                    console.log("⚠️ Transaction already processed");
+
+                    return response.status(200).json({
+                        alreadyProcessed: true,
+                    });
+                }
+
+                // Mark transaction as paid
+                const updatedTransaction =
+                    await prisma.transaction.update({
                         where: {
                             id: transactionId,
                         },
@@ -95,33 +102,36 @@ export const stripeWebhook = async (
                         },
                     });
 
-                    console.log("✅ Transaction marked paid");
+                console.log("✅ Transaction marked as paid");
 
-                    await prisma.user.update({
-                        where: {
-                            id: transaction.userId,
+                // Update user credits
+                await prisma.user.update({
+                    where: {
+                        id: updatedTransaction.userId,
+                    },
+                    data: {
+                        credits: {
+                            increment: updatedTransaction.credits,
                         },
-                        data: {
-                            credits: {
-                                increment: transaction.credits,
-                            },
-                        },
-                    });
+                    },
+                });
 
-                    console.log("✅ Credits updated successfully");
-                }
+                console.log("✅ User credits updated successfully");
 
                 break;
+            }
 
             default:
-                console.log(`Ignored event type ${event.type}`);
+                console.log(`ℹ️ Ignored event type: ${event.type}`);
+                break;
         }
 
-        return response.json({
+        // Return success response
+        return response.status(200).json({
             received: true,
         });
     } catch (err: any) {
-        console.log("❌ WEBHOOK ERROR");
+        console.log("❌ Stripe webhook processing error");
         console.log(err);
         console.log(err.message);
 
