@@ -18,6 +18,9 @@ const Sidebar = ({ isMenuOpen, project, setProject, isGenerating, setIsGeneratin
 
     const messageeRef = useRef<HTMLDivElement>(null);
     const [input, setInput] = useState('');
+    // Local pending messages for optimistic UI — never overwritten by fetchProject()
+    const [pendingMessages, setPendingMessages] = useState<Message[]>([]);
+    const prevConversationLen = useRef(project.conversation.length);
 
     const fetchProject = async () => {
         try {
@@ -28,6 +31,14 @@ const Sidebar = ({ isMenuOpen, project, setProject, isGenerating, setIsGeneratin
             console.log(error);
         }
     };
+
+    // Clear pending messages once the server confirms the user message is in DB
+    useEffect(() => {
+        if (project.conversation.length > prevConversationLen.current) {
+            setPendingMessages([]);
+        }
+        prevConversationLen.current = project.conversation.length;
+    }, [project.conversation.length]);
 
     const handleRollback = async (versionId: string) => {
         try {
@@ -52,39 +63,55 @@ const Sidebar = ({ isMenuOpen, project, setProject, isGenerating, setIsGeneratin
         if (!input.trim()) return;
         const currentInput = input;
         setInput('');
+
+        // Add the message to local-only pending state — instantly visible, immune to fetchProject overwrites
+        const optimisticMessage: Message = {
+            id: `temp-${Date.now()}`,
+            role: 'user',
+            content: currentInput,
+            timestamp: new Date().toISOString(),
+        };
+        setPendingMessages([optimisticMessage]);
+
         setIsGenerating(true);
         let interval: number | undefined;
         try {
-            interval = setInterval(() => {
+            interval = window.setInterval(() => {
                 fetchProject();
-            }, 10000)
-            await api.post(`/api/project/revision/${project.id}`,
-                { message: currentInput })
+            }, 10000);
+            await api.post(`/api/project/revision/${project.id}`, { message: currentInput });
             fetchProject();
-            toast.success("Project updated")
-            clearInterval(interval)
+            toast.success("Project updated");
+            clearInterval(interval);
             setIsGenerating(false);
         }
         catch (error: any) {
             setIsGenerating(false);
+            setPendingMessages([]); // Clear on error
             clearInterval(interval);
             toast.error(error.response?.data?.message || error.message);
             console.log(error);
         }
     }
 
+    // Merge server conversation + local pending messages for display
+    const allMessages = [
+        ...project.conversation,
+        ...pendingMessages.filter(p => !project.conversation.some(m => m.content === p.content && m.role === 'user'))
+    ];
+
     useEffect(() => {
         if (messageeRef.current) {
             messageeRef.current.scrollIntoView({ behavior: 'smooth' });
         }
-    }, [project.conversation.length, isGenerating]);
+    }, [allMessages.length, isGenerating]);
 
     return (
         <div className={`h-full sm:max-w-sm rounded-xl bg-gray-900 border-gray-800 transition-all ${isMenuOpen ? 'max-sm:w-0 overflow-hidden' : 'w-full'}`}>
             <div className="flex flex-col h-full">
                 {/* Message container */}
                 <div className='flex-1 overflow-y-auto no-scrollbar px-3 flex flex-col gap-4'>
-                    {[...project.conversation, ...project.versions]
+                    {[...allMessages, ...project.versions]
                         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
                         .map((message) => {
                             const isMessage = 'content' in message;
@@ -162,7 +189,7 @@ const GENERATION_STEPS = [
     'Writing code...',
     'Finalizing...',
 ];
-const EST_TOTAL = 80000;
+const EST_TOTAL = 120000;
 
 const GenerationProgress = ({ startTime: parentStartTime }: { startTime?: number }) => {
     const startTime = useRef(parentStartTime || Date.now()).current;

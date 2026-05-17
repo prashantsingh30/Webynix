@@ -139,24 +139,25 @@ export const makeRevision = async (req: Request, res: Response) => {
         let code = "";
         try {
             const prompt = `
-                You are an expert web developer. 
+            You are an expert frontend developer.
 
-                CRITICAL REQUIREMENTS:
-                - Return ONLY the complete updated HTML code with the requested changes.
-                - Use Tailwind CSS for ALL styling (NO custom CSS).
-                - DESIGN STYLE: Premium, state-of-the-art modern web design. Use a clean visual hierarchy, generous white space (py-24 sections), and sophisticated typography.
-                - VISUALS: Use glassmorphism effects (backdrop-blur), subtle micro-animations (animate-fade-in), and smooth transitions on hover.
-                - COLORS: Use a refined color palette with gradients (e.g., from-indigo-600 to-purple-600) and high-contrast text.
-                - IMAGE USAGE: Use premium high-quality images from: https://picsum.photos/ Example: https://picsum.photos/1200/700. 
-                Use beautiful CSS gradients and Use inline SVG icons only. Do not use icon libraries. To ensure stability to make the website work on all the browsers.
-                - Make it fully responsive (mobile-first approach).
-                - Return the HTML Code Only, nothing else.
+            Update the website based on this request:
+            "${enhancedPrompt}"
 
-                Apply the requested changes while maintaining the Tailwind CSS styling approach.
-                
-                Here is the current website code: "${currentProject.current_code}"
-                
-                The user wants these changes: "${enhancedPrompt}"
+            RULES:
+            - Return ONLY valid HTML.
+            - Use Tailwind CSS only.
+            - Keep the design modern, premium, responsive, and production-ready.
+            - Use gradients, cards, glassmorphism, smooth hover effects, and subtle animations.
+            - Do NOT use random image services like picsum.photos.
+            - Avoid changing or dynamic images.
+            - Prefer SVGs, gradients, dashboards, statistic cards, and abstract UI elements instead of stock photos.
+            - Use inline SVG icons only.
+            - Maintain the existing website structure and improve the UI professionally.
+            - Keep all sections responsive.
+
+            Current Website Code:
+            ${currentProject.current_code}
             `;
 
             try {

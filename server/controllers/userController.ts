@@ -169,30 +169,55 @@ export const createUserProject = async (req: Request, res: Response) => {
                 let code = "";
                 try {
                     const prompt = `
-                        You are an expert web developer. Create a visually stunning, premium, modern SaaS-quality website
-                        with advanced UI/UX similar to Vercel, Stripe, Linear, or Framer.
-                        The website should feel award-winning, futuristic, animated,
-                        highly polished, and production-ready based on this request: "${enhancedPrompt}"
+                        You are an expert web developer. Create a visually stunning, premium, modern SaaS-quality website with advanced UI/UX similar to Vercel, Stripe, Linear, or Framer.
+
+                        The website should feel futuristic, elegant, animated, highly polished, and production-ready based on this request: "${enhancedPrompt}"
 
                         CRITICAL REQUIREMENTS:
                         - You MUST output valid HTML ONLY.
                         - Use Tailwind CSS for ALL styling.
                         - Include this EXACT script in the <head>: <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-                        - DESIGN STYLE: Premium, state-of-the-art modern web design. Use a clean visual hierarchy, generous white space (py-24 sections), and sophisticated typography.
-                        - VISUALS: Use glassmorphism effects (backdrop-blur), subtle micro-animations (animate-fade-in), and smooth transitions on hover.
-                        - COLORS: Use a refined color palette with gradients (e.g., from-indigo-600 to-purple-600) and high-contrast text.
-                        - IMAGE USAGE: Use premium high-quality images from: https://picsum.photos/ Example: https://picsum.photos/1200/700. 
-                        Use beautiful CSS gradients and Use inline SVG icons only. Do not use icon libraries. To ensure stability to make the website work on all the browsers.
-                        - SECTIONS: Include a sticky glassmorphism Navbar, a bold Hero section, high-quality Feature cards with hover lifts, a clean CTA, and a minimalist Footer.
-                        - Make it fully responsive (mobile-first approach).
-                        - Use professional placeholder content that matches the website's niche.
+
+                        - DESIGN STYLE:
+                        - Premium modern SaaS-style UI.
+                        - Clean visual hierarchy with proper spacing and typography.
+                        - Use gradients, glassmorphism, subtle shadows, hover effects, cards, dashboards, and smooth animations.
+                        - Use professional modern color palettes with high contrast.
+                        - Use elegant responsive layouts with mobile-first design.
+
+                        - VISUALS:
+                        - Do NOT use random image services like picsum.photos.
+                        - Avoid changing or dynamic images.
+                        - Prefer modern gradients, SVG illustrations, geometric backgrounds, dashboard mockups, statistic cards, and abstract UI elements instead of stock photos.
+                        - Use inline SVG icons only.
+                        - Keep visuals clean, modern, and professional.
+
+                        - SECTIONS:
+                        - Sticky Navbar
+                        - Hero Section
+                        - Features Section
+                        - Stats or Dashboard Section
+                        - Testimonials
+                        - Pricing or CTA Section
+                        - Professional Footer
+
+                        - UX:
+                        - Fully responsive design.
+                        - Smooth hover transitions and animations.
+                        - Modern button styles and interactive UI.
+                        - Production-ready layout and spacing.
+
+                        - CONTENT:
+                        - Use professional placeholder content matching the website niche.
+                        - Ensure content looks realistic and polished.
 
                         CRITICAL HARD RULES:
-                        1. You MUST put ALL output ONLY into the response.
-                        2. You MUST NOT include internal thoughts, explanations, analysis, comments, or markdown.
-                        3. Do NOT include markdown, explanations, notes, or code fences.
+                        1. Output ONLY valid HTML.
+                        2. Do NOT include markdown, explanations, notes, comments, or code fences.
+                        3. Do NOT include internal thoughts or analysis.
+                        4. The HTML must be complete and directly renderable.
 
-                        The HTML should be complete and ready to render as-is with Tailwind CSS.
+                        The final output should look like a premium startup landing page built by a professional frontend designer.
                     `;
 
                     try {
