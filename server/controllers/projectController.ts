@@ -74,11 +74,17 @@ export const makeRevision = async (req: Request, res: Response) => {
         let enhancedPrompt = message;
         try {
             const enhancementResult = await model.generateContent(`
-                Enhance this website revision request into a precise technical update.
-                Focus on sophisticated UI patterns and layout consistency.
-                CRITICAL: Strictly cover only 5-6 professional lines.
+                You are a prompt enhancement specialist. The user wants to make changes to their website. Enhance their request to be more specific and actionable for a web developer.
+
+                Enhance this by:
+                1. Being specific about what elements to change
+                2. Mentioning design details (colors, spacing, sizes)
+                3. Clarifying the desired outcome
+                4. Using clear technical terms
+
+                Return ONLY the enhanced request, nothing else. Keep it concise (1-2 sentences).
                 
-                Request: "${message}"
+                User's request: "${message}"
             `);
             enhancedPrompt = enhancementResult.response.text().trim() || message;
         } catch (err) {
@@ -92,14 +98,15 @@ export const makeRevision = async (req: Request, res: Response) => {
                         },
                         {
                             role: "user",
-                            content: `Enhance this website revision request into a precise technical update.
-                            Focus on:
-                            1. Visual consistency with the current design.
-                            2. Sophisticated UI patterns (hover effects, glassmorphism).
-                            3. Semantic structure and layout flow.
-                            CRITICAL: The response MUST be professional and strictly cover only 5-6 lines. No more.
-                            
-                            Request: "${message}"`,
+                            content: `You are a prompt enhancement specialist. The user wants to make changes to their website. Enhance their request to be more specific and actionable for a web developer.
+
+                            Enhance this by:
+                            1. Being specific about what elements to change
+                            2. Mentioning design details (colors, spacing, sizes)
+                            3. Clarifying the desired outcome
+                            4. Using clear technical terms
+                            Return ONLY the enhanced request, nothing else. Keep it concise (1-2 sentences).
+                            User's request: "${message}"`,
                         },
                     ],
                     model: "llama-3.3-70b-versatile",
@@ -115,7 +122,7 @@ export const makeRevision = async (req: Request, res: Response) => {
         await prisma.conversation.create({
             data: {
                 role: "assistant",
-                content: `I've refined your request to: "${enhancedPrompt}"`,
+                content: `I have enhanced your prompt to:\n\n"${enhancedPrompt}"`,
                 projectId,
             },
         });

@@ -111,11 +111,18 @@ export const createUserProject = async (req: Request, res: Response) => {
                 let enhancedPrompt = initial_prompt;
                 try {
                     const enhancementResult = await model.generateContent(`
-                        Enhance this website request into a professional technical specification.
-                        Focus on professional layout, modern sections, and glassmorphism.
-                        CRITICAL: Strictly cover only 5-6 professional lines.
-                        
-                        Request: "${initial_prompt}"
+                        You are a prompt enhancement specialist. Take the user's website request and expand it into a detailed, comprehensive prompt that will help create the best possible website.
+
+                        Enhance this prompt by:
+                        1. Adding specific design details (layout, color scheme, typography)
+                        2. Specifying key sections and features
+                        3. Describing the user experience and interactions
+                        4. Including modern web design best practices
+                        5. Mentioning responsive design requirements
+                        6. Adding any missing but important elements
+
+                        Return ONLY the enhanced prompt, nothing else. Make it detailed but concise (2-3 paragraphs max).
+                        User's request: "${initial_prompt}"
                     `);
                     enhancedPrompt = enhancementResult.response.text().trim() || initial_prompt;
                 } catch (err) {
@@ -129,15 +136,16 @@ export const createUserProject = async (req: Request, res: Response) => {
                                 },
                                 {
                                     role: "user",
-                                    content: `Enhance this website request into a professional technical specification.
-                                    Focus on:
-                                    1. Modern visual hierarchy and layout.
-                                    2. Professional sections (Hero, Features, Social Proof, CTA).
-                                    3. Sophisticated glassmorphism details.
-                                    4. Concise, punchy copy.
-                                    CRITICAL: The entire response MUST be professional and strictly cover only 5-6 lines. No more.
-                                    
-                                    Request: "${initial_prompt}"`,
+                                    content: `You are a prompt enhancement specialist. Take the user's website request and expand it into a detailed, comprehensive prompt that will help create the best possible website.
+                                    Enhance this prompt by:
+                                    1. Adding specific design details (layout, color scheme, typography)
+                                    2. Specifying key sections and features
+                                    3. Describing the user experience and interactions
+                                    4. Including modern web design best practices
+                                    5. Mentioning responsive design requirements
+                                    6. Adding any missing but important elements
+                                    Return ONLY the enhanced prompt, nothing else. Make it detailed but concise (2-3 paragraphs max).
+                                    User's request: "${initial_prompt}"`,
                                 },
                             ],
                             model: "llama-3.3-70b-versatile",
@@ -183,6 +191,8 @@ export const createUserProject = async (req: Request, res: Response) => {
                         1. You MUST put ALL output ONLY into the response.
                         2. You MUST NOT include internal thoughts, explanations, analysis, comments, or markdown.
                         3. Do NOT include markdown, explanations, notes, or code fences.
+
+                        The HTML should be complete and ready to render as-is with Tailwind CSS.
                     `;
 
                     try {
