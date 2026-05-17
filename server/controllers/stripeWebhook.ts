@@ -1,7 +1,8 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
-import prisma from "../lib/prisma.js";
 import "dotenv/config";
+
+import prisma from "../lib/prisma.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
@@ -9,75 +10,123 @@ export const stripeWebhook = async (
     request: Request,
     response: Response
 ) => {
-    const sig = request.headers["stripe-signature"] as string;
+    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
+
     let event: Stripe.Event;
+
+    const signature = request.headers["stripe-signature"] as string;
 
     try {
         event = stripe.webhooks.constructEvent(
             request.body,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET as string
+            signature,
+            endpointSecret
         );
-        console.log(`✅ Webhook signature verified. Event type: ${event.type}`);
+
+        console.log("✅ Webhook verified");
     } catch (err: any) {
-        console.error("❌ Webhook signature verification failed:", err.message);
+        console.log("⚠️ Webhook signature verification failed.");
+        console.log(err.message);
+
         return response.status(400).send(`Webhook Error: ${err.message}`);
     }
 
     try {
-        if (event.type === "checkout.session.completed") {
-            const session = event.data.object as Stripe.Checkout.Session;
-            console.log("✅ Checkout session completed event received.");
+        switch (event.type) {
+            case "payment_intent.succeeded":
+                const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-            const transactionId = session.metadata?.transactionId;
-            if (!transactionId) {
-                console.error("❌ Missing transactionId in session metadata.");
-                return response.status(200).json({ ignored: true, reason: "Missing transactionId" });
-            }
+                console.log("✅ Payment succeeded");
 
-            // 1. Ensure transaction exists before updating
-            const transaction = await prisma.transaction.findUnique({
-                where: { id: transactionId },
-            });
+                const sessionList = await stripe.checkout.sessions.list({
+                    payment_intent: paymentIntent.id,
+                });
 
-            if (!transaction) {
-                console.error(`❌ Transaction not found in DB: ${transactionId}`);
-                // Return 200 so Stripe does not infinitely retry invalid transactions
-                return response.status(200).json({ ignored: true, reason: "Transaction not found" });
-            }
+                const session = sessionList.data[0];
 
-            // 2. Prevent duplicate webhook processing safely
-            if (transaction.isPaid) {
-                console.log(`⚠️ Transaction ${transactionId} already processed (isPaid=true). Skipping.`);
-                return response.status(200).json({ alreadyProcessed: true });
-            }
+                if (!session || !session.metadata) {
+                    console.log("❌ No session metadata found");
 
-            // 3. Atomically update transaction and user credits using $transaction
-            console.log(`⏳ Processing payment for transaction ${transactionId}...`);
-            await prisma.$transaction([
-                prisma.transaction.update({
-                    where: { id: transactionId },
-                    data: { isPaid: true },
-                }),
-                prisma.user.update({
-                    where: { id: transaction.userId },
-                    data: {
-                        credits: {
-                            increment: transaction.credits,
+                    return response.status(200).json({
+                        ignored: true,
+                    });
+                }
+
+                const { transactionId, appId } = session.metadata as {
+                    transactionId: string;
+                    appId: string;
+                };
+
+                console.log("Transaction ID:", transactionId);
+                console.log("App ID:", appId);
+
+                // FIXED HERE
+                if (appId === "webynix" && transactionId) {
+                    const existingTransaction =
+                        await prisma.transaction.findUnique({
+                            where: {
+                                id: transactionId,
+                            },
+                        });
+
+                    if (!existingTransaction) {
+                        console.log("❌ Transaction not found");
+
+                        return response.status(200).json({
+                            ignored: true,
+                        });
+                    }
+
+                    // Prevent duplicate webhook processing
+                    if (existingTransaction.isPaid) {
+                        console.log("⚠️ Transaction already processed");
+
+                        return response.status(200).json({
+                            alreadyProcessed: true,
+                        });
+                    }
+
+                    const transaction = await prisma.transaction.update({
+                        where: {
+                            id: transactionId,
                         },
-                    },
-                })
-            ]);
+                        data: {
+                            isPaid: true,
+                        },
+                    });
 
-            console.log(`✅ Successfully added ${transaction.credits} credits to user ${transaction.userId}.`);
+                    console.log("✅ Transaction marked paid");
+
+                    await prisma.user.update({
+                        where: {
+                            id: transaction.userId,
+                        },
+                        data: {
+                            credits: {
+                                increment: transaction.credits,
+                            },
+                        },
+                    });
+
+                    console.log("✅ Credits updated successfully");
+                }
+
+                break;
+
+            default:
+                console.log(`Ignored event type ${event.type}`);
         }
 
-        // Return a 200 response to acknowledge receipt
-        return response.status(200).json({ received: true });
+        return response.json({
+            received: true,
+        });
     } catch (err: any) {
-        console.error("❌ WEBHOOK ERROR DURING DATABASE OPERATION:");
-        console.error(err);
-        
-        return response.status(500).json({ error: "Database operation failed", details: err.message });
+        console.log("❌ WEBHOOK ERROR");
+        console.log(err);
+        console.log(err.message);
+
+        return response.status(200).json({
+            errorHandled: true,
+        });
     }
 };
