@@ -28,13 +28,14 @@ export const stripeWebhook = async (request: Request, response: Response) => {
 
         // Handle the event
         switch (event.type) {
-            case "payment_intent.succeeded":
-                const paymentIntent = event.data.object;
-                const sessionList = await stripe.checkout.sessions.list({
-                    payment_intent: paymentIntent.id,
-                });
+            case "checkout.session.completed":
+                const session = event.data.object as Stripe.Checkout.Session;
 
-                const session = sessionList.data[0];
+                if (!session.metadata) {
+                    console.log("No metadata found in session");
+                    break;
+                }
+
                 const { transactionId, appId } = session.metadata as {
                     transactionId: string;
                     appId: string;

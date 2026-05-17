@@ -9,9 +9,26 @@ import { stripeWebhook } from "./controllers/stripeWebhook.js";
 
 const app = express();
 
-// Middleware
-app.use(express.json({ limit: "50mb" }));
-app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+// Stripe webhook MUST come before express.json()
+app.post(
+    "/api/stripe",
+    express.raw({ type: "application/json" }),
+    stripeWebhook
+);
+
+// Normal middleware
+app.use((req, res, next) => {
+    if (req.originalUrl === "/api/stripe") {
+        next();
+    } else {
+        express.json({ limit: "50mb" })(req, res, next);
+    }
+});
+
+app.use(express.urlencoded({
+    extended: true,
+    limit: "50mb"
+}));
 
 const allowedOrigins = [
     "http://localhost:5173",
@@ -25,7 +42,6 @@ const corsOptions = {
 }
 
 app.use(cors(corsOptions))
-app.post("/api/stripe", express.raw({ type: "application/json" }), stripeWebhook)
 
 app.all('/api/auth/{*any}', toNodeHandler(auth));
 
