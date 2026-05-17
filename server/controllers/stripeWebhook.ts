@@ -1,76 +1,79 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
+import prisma from "../lib/prisma.js";
 import "dotenv/config";
 
-import prisma from "../lib/prisma.js";
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
 
-export const stripeWebhook = async (request: Request, response: Response) => {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string);
-    const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET as string;
+export const stripeWebhook = async (
+    request: Request,
+    response: Response
+) => {
+    const sig = request.headers["stripe-signature"] as string;
 
-    if (endpointSecret) {
-        let event;
-        // Get the signature sent by Stripe
-        const signature = request.headers["stripe-signature"] as string;
-        try {
-            event = stripe.webhooks.constructEvent(
-                request.body,
-                signature,
-                endpointSecret
-            );
-        } catch (err: any) {
-            console.log(
-                `⚠️ Webhook signature verification failed.`,
-                err.message
-            );
-            return response.sendStatus(400);
+    let event: Stripe.Event;
+
+    try {
+        event = stripe.webhooks.constructEvent(
+            request.body,
+            sig,
+            process.env.STRIPE_WEBHOOK_SECRET as string
+        );
+
+        console.log("✅ Webhook verified");
+    } catch (err: any) {
+        console.log("❌ Signature verification failed");
+        console.log(err.message);
+
+        return response.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    try {
+        if (event.type === "checkout.session.completed") {
+            const session = event.data.object as Stripe.Checkout.Session;
+
+            console.log("✅ Checkout completed");
+            console.log("Metadata:", session.metadata);
+
+            const transactionId = session.metadata?.transactionId;
+
+            if (!transactionId) {
+                console.log("❌ No transaction ID found");
+                return response.status(400).send("Missing transactionId");
+            }
+
+            const transaction = await prisma.transaction.update({
+                where: {
+                    id: transactionId,
+                },
+                data: {
+                    isPaid: true,
+                },
+            });
+
+            console.log("✅ Transaction updated");
+
+            await prisma.user.update({
+                where: {
+                    id: transaction.userId,
+                },
+                data: {
+                    credits: {
+                        increment: transaction.credits,
+                    },
+                },
+            });
+
+            console.log("✅ Credits added successfully");
         }
 
-        // Handle the event
-        switch (event.type) {
-            case "checkout.session.completed":
-                const session = event.data.object as Stripe.Checkout.Session;
+        response.status(200).json({
+            received: true,
+        });
+    } catch (err: any) {
+        console.log("❌ Webhook DB error");
+        console.log(err);
 
-                if (!session.metadata) {
-                    console.log("No metadata found in session");
-                    break;
-                }
-
-                const { transactionId, appId } = session.metadata as {
-                    transactionId: string;
-                    appId: string;
-                };
-
-                if (appId === "webynix" && transactionId) {
-                    const transaction = await prisma.transaction.update({
-                        where: {
-                            id: transactionId,
-                        },
-                        data: {
-                            isPaid: true,
-                        },
-                    });
-
-                    // Add credits to the user data
-                    await prisma.user.update({
-                        where: {
-                            id: transaction.userId,
-                        },
-                        data: {
-                            credits: {
-                                increment: transaction.credits,
-                            },
-                        },
-                    });
-                }
-
-                break;
-            // ... handle other event types
-            default:
-                console.log(`Unhandled event type ${event.type}`);
-        }
-
-        // Return a response to acknowledge receipt of the event
-        response.json({ received: true });
+        response.status(500).send("Webhook handler failed");
     }
 };

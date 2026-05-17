@@ -9,14 +9,14 @@ import { stripeWebhook } from "./controllers/stripeWebhook.js";
 
 const app = express();
 
-// Stripe webhook MUST come before express.json()
+// Stripe webhook route
 app.post(
     "/api/stripe",
     express.raw({ type: "application/json" }),
     stripeWebhook
 );
 
-// Normal middleware
+// IMPORTANT: Skip express.json for Stripe webhook
 app.use((req, res, next) => {
     if (req.originalUrl === "/api/stripe") {
         next();
@@ -25,10 +25,12 @@ app.use((req, res, next) => {
     }
 });
 
-app.use(express.urlencoded({
-    extended: true,
-    limit: "50mb"
-}));
+app.use(
+    express.urlencoded({
+        extended: true,
+        limit: "50mb",
+    })
+);
 
 const allowedOrigins = [
     "http://localhost:5173",
