@@ -38,11 +38,29 @@ export const stripeWebhook = async (
             const transactionId = session.metadata?.transactionId;
 
             if (!transactionId) {
-                console.log("❌ No transaction ID found");
+                console.log("❌ No transaction ID found in metadata");
                 return response.status(400).send("Missing transactionId");
             }
 
-            const transaction = await prisma.transaction.update({
+            // 1. Find the transaction first
+            const existingTransaction = await prisma.transaction.findUnique({
+                where: { id: transactionId }
+            });
+
+            if (!existingTransaction) {
+                console.log(`❌ Transaction not found in DB: ${transactionId}`);
+                // Return 200 so Stripe stops retrying a permanently invalid transaction
+                return response.status(200).json({ received: true, error: "Transaction not found" });
+            }
+
+            // 2. Handle idempotency (duplicate webhooks)
+            if (existingTransaction.isPaid) {
+                console.log(`⚠️ Transaction ${transactionId} is already marked as paid. Skipping credit increment.`);
+                return response.status(200).json({ received: true, message: "Already processed" });
+            }
+
+            // 3. Mark transaction as paid
+            const updatedTransaction = await prisma.transaction.update({
                 where: {
                     id: transactionId,
                 },
@@ -51,20 +69,21 @@ export const stripeWebhook = async (
                 },
             });
 
-            console.log("✅ Transaction updated");
+            console.log(`✅ Transaction ${transactionId} marked as paid`);
 
+            // 4. Increment user credits
             await prisma.user.update({
                 where: {
-                    id: transaction.userId,
+                    id: updatedTransaction.userId,
                 },
                 data: {
                     credits: {
-                        increment: transaction.credits,
+                        increment: updatedTransaction.credits,
                     },
                 },
             });
 
-            console.log("✅ Credits added successfully");
+            console.log(`✅ ${updatedTransaction.credits} credits added to user ${updatedTransaction.userId} successfully`);
         }
 
         response.status(200).json({
