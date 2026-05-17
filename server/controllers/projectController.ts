@@ -71,20 +71,25 @@ export const makeRevision = async (req: Request, res: Response) => {
         });
 
         // ✅ REFINED PROMPT ENHANCEMENT WITH GEMINI (PRIMARY)
+        // Include project context so enhancement stays scoped to this website's domain
+        const projectContext = `This is a "${currentProject.name}" website. The original purpose was: "${currentProject.initial_prompt}"`;
+
         let enhancedPrompt = message;
         try {
             const enhancementResult = await model.generateContent(`
-                You are a prompt enhancement specialist. The user wants to make changes to their website. Enhance their request to be more specific and actionable for a web developer.
+                You are a prompt enhancement specialist helping refine a change request for an existing website.
 
-                Enhance this by:
-                1. Being specific about what elements to change
-                2. Mentioning design details (colors, spacing, sizes)
-                3. Clarifying the desired outcome
-                4. Using clear technical terms
+                IMPORTANT CONTEXT:
+                ${projectContext}
+
+                The user wants to make a specific change to this website. Enhance their request to be more precise and actionable, BUT:
+                - STAY within the scope of this website's purpose. Do NOT suggest unrelated features.
+                - Mention specific UI elements, design details (colors, spacing, sizes) relevant to this site.
+                - Keep it focused on the change they asked for.
 
                 Return ONLY the enhanced request, nothing else. Keep it concise (1-2 sentences).
-                
-                User's request: "${message}"
+
+                User's change request: "${message}"
             `);
             enhancedPrompt = enhancementResult.response.text().trim() || message;
         } catch (err) {
@@ -98,15 +103,18 @@ export const makeRevision = async (req: Request, res: Response) => {
                         },
                         {
                             role: "user",
-                            content: `You are a prompt enhancement specialist. The user wants to make changes to their website. Enhance their request to be more specific and actionable for a web developer.
+                            content: `You are a prompt enhancement specialist helping refine a change request for an existing website.
 
-                            Enhance this by:
-                            1. Being specific about what elements to change
-                            2. Mentioning design details (colors, spacing, sizes)
-                            3. Clarifying the desired outcome
-                            4. Using clear technical terms
+                            IMPORTANT CONTEXT:
+                            ${projectContext}
+
+                            The user wants to make a specific change to this website. Enhance their request to be more precise and actionable, BUT:
+                            - STAY within the scope of this website's purpose. Do NOT suggest unrelated features.
+                            - Mention specific UI elements relevant to this site.
+                            - Keep it focused on the change they asked for.
+
                             Return ONLY the enhanced request, nothing else. Keep it concise (1-2 sentences).
-                            User's request: "${message}"`,
+                            User's change request: "${message}"`,
                         },
                     ],
                     model: "llama-3.3-70b-versatile",
@@ -139,21 +147,25 @@ export const makeRevision = async (req: Request, res: Response) => {
         let code = "";
         try {
             const prompt = `
-            You are an expert frontend developer.
+            You are an expert frontend developer modifying an existing website.
 
-            Update the website based on this request:
+            WEBSITE CONTEXT:
+            ${projectContext}
+
+            Apply this specific change request to the existing code:
             "${enhancedPrompt}"
 
-            RULES:
-            - Return ONLY valid HTML.
+            STRICT RULES:
+            - Return ONLY valid HTML. No markdown, no explanations.
             - Use Tailwind CSS only.
             - Keep the design modern, premium, responsive, and production-ready.
             - Use gradients, cards, glassmorphism, smooth hover effects, and subtle animations.
             - Do NOT use random image services like picsum.photos.
             - Avoid changing or dynamic images.
-            - Prefer SVGs, gradients, dashboards, statistic cards, and abstract UI elements instead of stock photos.
+            - Prefer SVGs, gradients, and abstract UI elements instead of stock photos.
             - Use inline SVG icons only.
-            - Maintain the existing website structure and improve the UI professionally.
+            - MOST IMPORTANTLY: Preserve the website's original purpose. This is a "${currentProject.name}" website. Do NOT change what kind of website this is, do NOT add unrelated sections or features.
+            - Only apply the specific change the user requested; keep everything else intact.
             - Keep all sections responsive.
 
             Current Website Code:
