@@ -2,6 +2,7 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import type { Project } from '../types';
 import { iframeScript } from '../assets/assets';
 import EditorPanel from './EditorPanel';
+import ImageEditorPanel from './ImageEditorPanel';
 import LoaderSteps from './LoaderSteps';
 
 interface ProjectPreviewProps {
@@ -21,6 +22,7 @@ const ProjectPreview = forwardRef<ProjectPreviewRef, ProjectPreviewProps>(
         const iframeRef = useRef<HTMLIFrameElement>(null);
 
         const [selectedElement, setSelectedElement] = useState<any>(null);
+        const [selectedImage, setSelectedImage] = useState<{ src: string; alt: string; className: string } | null>(null);
 
         const resolution = {
             phone: 'w-[412px]',
@@ -36,7 +38,7 @@ const ProjectPreview = forwardRef<ProjectPreviewRef, ProjectPreviewProps>(
                 doc.querySelectorAll('.ai-selected-element, [data-ai-selected]').forEach(el => {
                     el.classList.remove('ai-selected-element');
                     el.removeAttribute('data-ai-selected');
-                    (el as HTMLElement).style.outline = '';
+                    (el as HTMLElement).style.outline = ''
                 })
 
                 const previewStype = doc.getElementById('ai-preview-style');
@@ -57,9 +59,14 @@ const ProjectPreview = forwardRef<ProjectPreviewRef, ProjectPreviewProps>(
         useEffect(() => {
             const handleMessage = (event: MessageEvent) => {
                 if (event.data.type === 'ELEMENT_SELECTED') {
+                    setSelectedImage(null);
                     setSelectedElement(event.data.payload);
+                } else if (event.data.type === 'IMAGE_SELECTED') {
+                    setSelectedElement(null);
+                    setSelectedImage(event.data.payload);
                 } else if (event.data.type === 'CLEAR_SELECTION') {
                     setSelectedElement(null);
+                    setSelectedImage(null);
                 }
             }
             window.addEventListener('message', handleMessage);
@@ -73,6 +80,24 @@ const ProjectPreview = forwardRef<ProjectPreviewRef, ProjectPreviewProps>(
                     payload: updates
                 }, '*');
             }
+        }
+
+        const handleImageUpdate = (newSrc: string) => {
+            if (iframeRef.current?.contentWindow) {
+                iframeRef.current.contentWindow.postMessage({
+                    type: 'UPDATE_IMAGE',
+                    payload: { src: newSrc }
+                }, '*');
+            }
+            setSelectedImage(null);
+        }
+
+        const closeAllPanels = () => {
+            if (iframeRef.current?.contentWindow) {
+                iframeRef.current.contentWindow.postMessage({ type: 'CLEAR_SELECTION_REQUEST' }, '*');
+            }
+            setSelectedElement(null);
+            setSelectedImage(null);
         }
 
         const injectPreview = (html: string) => {
@@ -93,14 +118,10 @@ const ProjectPreview = forwardRef<ProjectPreviewRef, ProjectPreviewProps>(
                     <>
                         <iframe ref={iframeRef} srcDoc={injectPreview(project.current_code)} className={`${resolution[device]} h-full max-sm:w-full mx-auto transition-all`} />
                         {showEditorPanel && selectedElement && (
-                            <EditorPanel selectedElement={selectedElement} onUpdate={handleUpdate} onClose={() => {
-                                if (iframeRef.current?.contentWindow) {
-                                    iframeRef.current.contentWindow.postMessage({
-                                        type: 'CLEAR_SELECTION_REQUEST'
-                                    }, '*');
-                                }
-                                setSelectedElement(null);
-                            }} />
+                            <EditorPanel selectedElement={selectedElement} onUpdate={handleUpdate} onClose={closeAllPanels} />
+                        )}
+                        {showEditorPanel && selectedImage && (
+                            <ImageEditorPanel selectedImage={selectedImage} onUpdate={handleImageUpdate} onClose={closeAllPanels} />
                         )}
                     </>) : isGenerating &&
                 <LoaderSteps startTime={generationStartTime} />

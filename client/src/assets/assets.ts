@@ -165,15 +165,22 @@ export const iframeScript = `
         .ai-selected-element {
             outline: 2px solid #6366f1 !important;
         }
+        img.ai-img-hover {
+            outline: 2px dashed #f59e0b !important;
+            cursor: cell !important;
+        }
+        img.ai-img-selected {
+            outline: 3px solid #f59e0b !important;
+        }
         </style>
         <script id="ai-preview-script">
         (function () {
-            // If this HTML is opened directly (not in an iframe), do nothing.
             if (window === window.parent) {
             return;
             }
 
             let selectedElement = null;
+            let selectedImage = null;
 
             function clearSelected() {
             if (selectedElement) {
@@ -182,7 +189,23 @@ export const iframeScript = `
                 selectedElement.style.outline = '';
                 selectedElement = null;
             }
+            if (selectedImage) {
+                selectedImage.classList.remove('ai-img-selected');
+                selectedImage = null;
             }
+            }
+
+            // Highlight images on hover
+            document.addEventListener('mouseover', function(e) {
+            if (e.target && e.target.tagName === 'IMG') {
+                e.target.classList.add('ai-img-hover');
+            }
+            });
+            document.addEventListener('mouseout', function(e) {
+            if (e.target && e.target.tagName === 'IMG') {
+                e.target.classList.remove('ai-img-hover');
+            }
+            });
 
             document.addEventListener('click', function (e) {
             e.preventDefault();
@@ -192,9 +215,23 @@ export const iframeScript = `
 
             const target = e.target;
 
-            // Don't select body or html
             if (!target || target.tagName === 'BODY' || target.tagName === 'HTML') {
                 window.parent.postMessage({ type: 'CLEAR_SELECTION' }, '*');
+                return;
+            }
+
+            // IMAGE: send IMAGE_SELECTED instead of ELEMENT_SELECTED
+            if (target.tagName === 'IMG') {
+                selectedImage = target;
+                selectedImage.classList.add('ai-img-selected');
+                window.parent.postMessage({
+                type: 'IMAGE_SELECTED',
+                payload: {
+                    src: target.src,
+                    alt: target.alt || '',
+                    className: target.className
+                }
+                }, '*');
                 return;
             }
 
@@ -222,7 +259,12 @@ export const iframeScript = `
             });
 
             window.addEventListener('message', function (event) {
-            if (event.data.type === 'UPDATE_ELEMENT' && selectedElement) {
+            if (event.data.type === 'UPDATE_IMAGE' && selectedImage) {
+                selectedImage.src = event.data.payload.src;
+                selectedImage.classList.remove('ai-img-selected');
+                selectedImage = null;
+                window.parent.postMessage({ type: 'CLEAR_SELECTION' }, '*');
+            } else if (event.data.type === 'UPDATE_ELEMENT' && selectedElement) {
                 const updates = event.data.payload;
 
                 if (updates.className !== undefined) {
@@ -239,7 +281,6 @@ export const iframeScript = `
             } else if (event.data.type === 'CLEAR_SELECTION_REQUEST') {
                 clearSelected();
 
-                // extra safety: remove our class + outline from any stray elements
                 document.querySelectorAll('.ai-selected-element,[data-ai-selected]').forEach(function (el) {
                 el.classList.remove('ai-selected-element');
                 el.removeAttribute('data-ai-selected');
