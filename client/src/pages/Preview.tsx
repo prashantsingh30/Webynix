@@ -30,15 +30,28 @@ const Preview = () => {
     }
 
     useEffect(() => {
-        if (!isPending && session?.user) {
-            fetchCode();
+        if (!isPending) {
+            if (session?.user) {
+                fetchCode();
+            } else {
+                toast.error("Please login to view preview");
+                setLoading(false);
+            }
         }
-    }, [session?.user]);
+    }, [session?.user, isPending]);
 
     if (loading) {
         return <div className="flex items-center justify-center h-screen">
             <Loader2Icon className="size-7 animate-spin text-indigo-200" />
         </div>
+    }
+
+    if (!code) {
+        return (
+            <div className="flex items-center justify-center h-screen w-full bg-white text-gray-500">
+                <p>No preview available yet. The code might still be generating.</p>
+            </div>
+        )
     }
 
     return (

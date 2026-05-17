@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Project } from '../types';
 import { Loader2Icon, PlusIcon, TrashIcon } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import Footer from '../components/Footer';
 import api from '@/config/axios';
 import { toast } from 'sonner';
@@ -93,7 +93,7 @@ const MyProjects = () => {
                                                 {new Date(project.createdAt).toLocaleDateString()}
                                             </span>
                                             <div className='flex gap-3 text-white text-sm'>
-                                                <button onClick={() => window.open(`/preview/${project.id}`, '_blank')} className='px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-md transition-all'>Preview</button>
+                                                <Link target='_blank' to={`/preview/${project.id}`} className='px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-md transition-all'>Preview</Link>
                                                 <button onClick={() => navigate(`/projects/${project.id}`)} className='px-3 py-1.5 bg-white/10 hover:bg-white/15 rounded-md transition-all'>Open</button>
                                             </div>
                                         </div>
